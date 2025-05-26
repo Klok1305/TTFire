@@ -143,7 +143,7 @@ class OgonekBot:
             status_text += f"⏸️ Напоминания приостановлены до: {state['reminders_paused_until'].strftime('%d.%m.%Y %H:%M')}\n"
         
         current_hour = datetime.now().hour
-        if 1 <= hour < 9:
+        if 1 <= current_hour < 9:
             status_text += "🌙 Сейчас ночное время (00:00-08:00), напоминания не отправляются"
         else:
             if state['ogonek_alive'] and not state['reminders_paused_until']:
