@@ -293,19 +293,19 @@ class OgonekBot:
         
         logger.info("Планировщик настроен. Сообщения будут отправляться каждые 3 часа.")
     
-    async def run(self):
+    def run(self):
         """Запуск бота"""
+        # Проверяем переменные окружения
         if not BOT_TOKEN:
-            logger.error("BOT_TOKEN не установлен в переменных окружения!")
-            return
-        
+            logger.error("❌ BOT_TOKEN не установлен в переменных окружения!")
+            exit(1)
         if not self.chat_ids:
-            logger.error("CHAT_IDS не установлены или некорректны!")
-            return
-        
+            logger.error("❌ CHAT_IDS не установлены или некорректны!")
+            exit(1)
+
         # Создание приложения
         self.app = Application.builder().token(BOT_TOKEN).build()
-        
+
         # Добавление обработчиков
         self.app.add_handler(CommandHandler("start", self.start_command))
         self.app.add_handler(CommandHandler("stop", self.stop_command))
@@ -313,17 +313,14 @@ class OgonekBot:
         self.app.add_handler(CommandHandler("revive", self.revive_command))
         self.app.add_handler(CommandHandler("mychatid", self.mychatid_command))
         self.app.add_handler(CallbackQueryHandler(self.button_callback))
-        
+
         # Запуск планировщика
         self.scheduler.start()
-        
-        # Настройка автоматических сообщений
-        await self.setup_scheduler()
-        
-        # Запуск бота с webhook для Railway
+        # Настройка автоматических сообщений (корутина внутри синхронного кода)
+        asyncio.get_event_loop().run_until_complete(self.setup_scheduler())
+
+        # Запускаем webhook-helper синхронно (PTB сам выполнит инициализацию/shutdown)
         logger.info(f"Бот запущен для {len(self.chat_ids)} пользователей!")
-        
-        # Railway предоставляет внешний URL автоматически
         self.app.run_webhook(
             listen="0.0.0.0",
             port=PORT,
@@ -331,29 +328,23 @@ class OgonekBot:
             url_path=BOT_TOKEN
         )
 
-async def main():
+def main():
     """Главная функция"""
+    # Проверяем, что основные env-переменные установлены
     if not BOT_TOKEN:
-        logger.error("❌ BOT_TOKEN не установлен в переменных окружения Railway!")
-        logger.error("Установите переменную BOT_TOKEN в настройках Railway")
-        return
-    
+        logger.error("❌ BOT_TOKEN не установлен в переменных окружения!")
+        exit(1)
     if not CHAT_IDS:
-        logger.error("❌ CHAT_IDS не установлены в переменных окружения Railway!")
-        logger.error("Установите переменную CHAT_IDS в формате JSON: [\"123456789\", \"987654321\"]")
-        return
-    
+        logger.error("❌ CHAT_IDS не установлены в переменных окружения!")
+        exit(1)
+
     bot = OgonekBot()
-    try:
-        await bot.run()
-    except KeyboardInterrupt:
-        logger.info("Бот остановлен пользователем")
-    except Exception as e:
-        logger.error(f"Критическая ошибка: {e}")
+    bot.run()
+
 
 if __name__ == "__main__":
-    asyncio.run(main())
-
+    main()
+    
 # requirements.txt содержимое:
 # python-telegram-bot==20.7
 # apscheduler==3.10.4
