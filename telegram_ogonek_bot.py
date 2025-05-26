@@ -17,7 +17,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 _raw = os.getenv('BOT_TOKEN', '')
 # убираем пробельные символы и ведущие '='
-BOT_TOKEN = _raw.strip().lstrip('=').strip()
+BOT_TOKEN = _raw.strip()
 if not BOT_TOKEN:
     logger.error("❌ BOT_TOKEN пуст после очистки, проверьте Variables в Railway.")
     exit(1)
