@@ -210,7 +210,7 @@ class OgonekBot:
                 
                 await self.app.bot.send_message(
                     chat_id=int(chat_id),
-                    text="🔥 Я надеюсь ты не убила огонек",
+                    text="🔥Я надеюсь огонек не умер🥹",
                     reply_markup=reply_markup
                 )
                 logger.info(f"Сообщение отправлено пользователю {chat_id} в {datetime.now()}")
