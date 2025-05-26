@@ -15,9 +15,14 @@ logging.basicConfig(
     level=logging.INFO
 )
 logger = logging.getLogger(__name__)
+_raw = os.getenv('BOT_TOKEN', '')
+# убираем пробельные символы и ведущие '='
+BOT_TOKEN = _raw.strip().lstrip('=').strip()
+if not BOT_TOKEN:
+    logger.error("❌ BOT_TOKEN пуст после очистки, проверьте Variables в Railway.")
+    exit(1)
 
 # Получение переменных окружения Railway
-BOT_TOKEN = os.getenv('BOT_TOKEN')
 CHAT_IDS = os.getenv('CHAT_IDS')  # JSON строка с массивом chat_id: ["123456789", "987654321", "111222333"]
 PORT = int(os.getenv('PORT', 8000))
 
@@ -319,7 +324,7 @@ class OgonekBot:
         logger.info(f"Бот запущен для {len(self.chat_ids)} пользователей!")
         
         # Railway предоставляет внешний URL автоматически
-        await self.app.run_webhook(
+        self.app.run_webhook(
             listen="0.0.0.0",
             port=PORT,
             webhook_url=f"https://{os.getenv('RAILWAY_PUBLIC_DOMAIN', 'localhost')}/{BOT_TOKEN}",
