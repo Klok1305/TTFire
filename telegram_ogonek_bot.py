@@ -145,9 +145,9 @@ class OgonekBot:
             return
 
         keyboard = [[
-            InlineKeyboardButton("Да 😢", callback_data='yes'),
-            InlineKeyboardButton("Нет 🎉", callback_data='no'),
-            InlineKeyboardButton("Еще нет 🤞", callback_data='not_yet')
+            InlineKeyboardButton("Сдох 😢", callback_data='yes'),
+            InlineKeyboardButton("Живет 🎉", callback_data='no'),
+            InlineKeyboardButton("Постараюсь не убить 🤞", callback_data='not_yet')
         ]]
         reply_markup = InlineKeyboardMarkup(keyboard)
 
