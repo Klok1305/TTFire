@@ -160,7 +160,7 @@ class OgonekBot:
                     self.update_user_state(cid, reminders_paused_until=None)
                 if not state['ogonek_alive']:
                     continue
-                await self.app.bot.send_message(chat_id=int(cid), text="🔥 Я надеюсь ты не убила огонек", reply_markup=reply_markup)
+                await self.app.bot.send_message(chat_id=int(cid), text="🔥 Я надеюсь огонек жив?", reply_markup=reply_markup)
             except Exception as e:
                 logger.error(f"Ошибка при отправке сообщения {cid}: {e}")
 
