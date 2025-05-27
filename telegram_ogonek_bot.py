@@ -22,7 +22,7 @@ if not BOT_TOKEN:
     logger.error("❌ BOT_TOKEN не установлен в переменных окружения!")
     exit(1)
 
-# Чтение и проверка CHAT_IDS из окружения (JSON-массив строк или чисел)
+# Чтение и проверка CHAT_IDS из окружения (JSON-массив)
 raw_chat_ids = os.getenv('CHAT_IDS', '[]')
 try:
     parsed = json.loads(raw_chat_ids)
@@ -31,7 +31,7 @@ try:
     CHAT_IDS = [str(x) for x in parsed]
     logger.info(f"Загружено {len(CHAT_IDS)} Chat ID(s)")
 except Exception:
-    logger.error("❌ Ошибка парсинга CHAT_IDS. Используйте JSON-массив, напр.: '[\"123456789\", \"987654321\"]'")
+    logger.error("❌ Ошибка парсинга CHAT_IDS. Используйте JSON-массив")
     exit(1)
 
 # Порт для webhook
@@ -70,7 +70,7 @@ class OgonekBot:
         self.update_user_state(chat_id, ogonek_alive=True, last_response_time=None, reminders_paused_until=None)
         await update.message.reply_text(
             "🔥 Бот запущен!\n"
-            "⏰ Расписание: 9:00–00:59 каждый 3 часа\n"
+            "⏰ Расписание: 9:00–00:59 (каждые 3 часа)\n"
             "🌙 Ночь: 1:00–8:59 (тишина)\n\n"
             "📋 Ответы на вопросы:\n"
             "• 'Да' → огонек умер, напоминания навсегда остановлены\n"
@@ -149,21 +149,20 @@ class OgonekBot:
             InlineKeyboardButton("Нет 🎉", callback_data='no'),
             InlineKeyboardButton("Еще нет 🤞", callback_data='not_yet')
         ]]
-        reply = InlineKeyboardMarkup(keyboard)
+        reply_markup = InlineKeyboardMarkup(keyboard)
 
         for cid in self.chat_ids:
             try:
                 state = self.get_user_state(cid)
-                # проверка паузы
                 if state['reminders_paused_until'] and now < state['reminders_paused_until']:
                     continue
                 if state['reminders_paused_until'] and now >= state['reminders_paused_until']:
                     self.update_user_state(cid, reminders_paused_until=None)
                 if not state['ogonek_alive']:
                     continue
-                await self.app.bot.send_message(chat_id=int(cid), text="🔥 Я надеюсь ты не убила огонек", reply_markup=reply)
+                await self.app.bot.send_message(chat_id=int(cid), text="🔥 Я надеюсь ты не убила огонек", reply_markup=reply_markup)
             except Exception as e:
-                logger.error(f"Ошибка при отправке {cid}: {e}")
+                logger.error(f"Ошибка при отправке сообщения {cid}: {e}")
 
     async def button_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         query = update.callback_query
@@ -172,22 +171,30 @@ class OgonekBot:
         if str(cid) not in self.chat_ids:
             await query.edit_message_text("❌ У вас нет доступа к этому боту.")
             return
+        # Обновляем время последнего ответа
         self.update_user_state(cid, last_response_time=datetime.now())
+        now = datetime.now()
         emojis = random.sample(["🌟","✨","💫","🎈","🎊","🎉","🌈","🦄","🎪","🎭","🎨","🎯"], 3)
         if query.data == 'yes':
             self.update_user_state(cid, ogonek_alive=False, reminders_paused_until=None)
-            response = "😭 Огонек умер. Напоминания остановлены." 
+            response = "😭 Какая короткая была у него жизнь... Покойся с миром, маленький огонек 🕯️💔\n\n⏹️ Напоминания остановлены навсегда."
         elif query.data == 'no':
-            nxt = (now + timedelta(days=1)).replace(hour=9, minute=0, second=0, microsecond=0)
-            self.update_user_state(cid, ogonek_alive=True, reminders_paused_until=nxt)
-            response = f"🎉 Огонек в порядке! Приостановлен до {nxt.strftime('%d.%m.%Y %H:%M')}"
+            next_day_9am = (now + timedelta(days=1)).replace(hour=9, minute=0, second=0, microsecond=0)
+            self.update_user_state(cid, ogonek_alive=True, reminders_paused_until=next_day_9am)
+            response = f"🎉 УРА! Огонек жив и здоров! Напоминания приостановлены до {next_day_9am.strftime('%d.%m.%Y %H:%M')}"
+        elif query.data == 'not_yet':
+            self.update_user_state(cid, ogonek_alive=True)
+            emoji_string = " ".join(emojis)
+            response = f"🙏 Еще не убил(а) {emoji_string}\n\n⏰ Напоминания продолжаются каждые 3 часа."
         else:
-            response = f"🙏 Еще не убил(а) { ' '.join(emojis) }"
-        await query.edit_message_text(f"{query.message.text}\n\n💬 {response}")
+            response = "❓ Непонятный ответ."
+        original = query.message.text or ""
+        await query.edit_message_text(f"{original}\n\n💬 {response}")
 
     async def setup_scheduler(self):
-        self.scheduler.add_job(self.send_ogonek_message, trigger=IntervalTrigger(hours=3), id='ogonek')
-        if not (1 <= datetime.now().hour < 9):
+        self.scheduler.add_job(self.send_ogonek_message, trigger=IntervalTrigger(hours=3), id='ogonek_reminder')
+        now = datetime.now()
+        if not (1 <= now.hour < 9):
             await self.send_ogonek_message()
 
     def run(self):
@@ -200,15 +207,19 @@ class OgonekBot:
         self.app.add_handler(CallbackQueryHandler(self.button_callback))
         self.scheduler.start()
         asyncio.get_event_loop().run_until_complete(self.setup_scheduler())
-        logger.info(f"Бот запущен для {len(self.chat_ids)} пользователей")
-        self.app.run_webhook(listen="0.0.0.0", port=PORT,
-                              webhook_url=f"https://{os.getenv('RAILWAY_PUBLIC_DOMAIN')}/{BOT_TOKEN}",
-                              url_path=BOT_TOKEN)
+        logger.info(f"Бот запущен для {len(self.chat_ids)} пользователей!")
+        self.app.run_webhook(
+            listen="0.0.0.0",
+            port=PORT,
+            webhook_url=f"https://{os.getenv('RAILWAY_PUBLIC_DOMAIN', 'localhost')}/{BOT_TOKEN}",
+            url_path=BOT_TOKEN
+        )
 
 
 def main():
     bot = OgonekBot()
     bot.run()
+
 
 if __name__ == '__main__':
     main()
